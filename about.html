@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dance Sync — 可穿戴声音装置</title>
+  <meta name="description" content="Dance Sync: 可穿戴动作声音装置。让你的手变成乐器。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    ::selection {
+      background: #fff;
+      color: #000
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: 'Space Grotesk', sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased
+    }
+
+    .mono {
+      font-family: 'Space Mono', monospace
+    }
+
+    /* CRT overlay */
+    #crt-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999
+    }
+
+    #crt-overlay::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, .015) 50%, rgba(0, 0, 0, .03) 50%);
+      background-size: 100% 3px;
+      pointer-events: none
+    }
+
+    #crt-overlay::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, .35) 100%);
+      pointer-events: none
+    }
+
+    /* Joy Division canvas */
+    #joy-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none
+    }
+
+    /* ═══ HAMBURGER MENU ═══ */
+    .hamburger {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 200;
+      cursor: pointer;
+      width: 28px;
+      height: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between
+    }
+
+    .hamburger span {
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: #fff;
+      transition: transform .3s, opacity .3s
+    }
+
+    .hamburger.open span:nth-child(1) {
+      transform: translateY(9px) rotate(45deg)
+    }
+
+    .hamburger.open span:nth-child(2) {
+      opacity: 0
+    }
+
+    .hamburger.open span:nth-child(3) {
+      transform: translateY(-9px) rotate(-45deg)
+    }
+
+    .side-panel {
+      position: fixed;
+      top: 0;
+      left: -260px;
+      width: 260px;
+      height: 100%;
+      background: #0a0a0a;
+      border-right: 1px solid #1a1a1a;
+      z-index: 190;
+      transition: left .3s;
+      padding: 60px 20px 20px;
+      overflow-y: auto
+    }
+
+    .side-panel.open {
+      left: 0
+    }
+
+    .side-panel label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: .4;
+      margin: 20px 0 6px;
+      font-family: 'Space Mono', monospace
+    }
+
+    .side-panel input[type=range] {
+      width: 100%;
+      accent-color: #fff;
+      background: transparent;
+      cursor: pointer;
+      -webkit-appearance: none;
+      height: 3px;
+      border-radius: 0;
+      background: #222
+    }
+
+    .side-panel input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border: none;
+      cursor: pointer
+    }
+
+    .side-panel .val-display {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      opacity: .6;
+      text-align: right
+    }
+
+    /* LANG TOGGLE */
+    .lang-toggle {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 200;
+      border: 1px solid #333;
+      padding: 5px 12px;
+      font-size: 10px;
+      letter-spacing: 2px;
+      font-family: 'Space Mono', monospace;
+      cursor: pointer;
+      background: transparent;
+      color: #fff;
+      text-transform: uppercase;
+      transition: all .2s
+    }
+
+    .lang-toggle:hover {
+      border-color: #fff
+    }
+
+    /* ═══ NAV ═══ */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 64px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 32px;
+      border-bottom: 1px solid #0a0a0a;
+      background: rgba(0, 0, 0, .6);
+      backdrop-filter: blur(8px)
+    }
+
+    nav a {
+      color: #555;
+      text-decoration: none;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      transition: color .2s;
+      font-family: 'Space Mono', monospace
+    }
+
+    nav a:hover {
+      color: #fff
+    }
+
+    /* ═══ CONTENT ═══ */
+    .content {
+      position: relative;
+      z-index: 10
+    }
+
+    /* ═══ HERO ═══ */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 120px 24px 80px;
+      position: relative
+    }
+
+    .hero-tag {
+      font-size: 10px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      opacity: .4;
+      margin-bottom: 40px;
+      font-family: 'Space Mono', monospace
+    }
+
+    .hero h1 {
+      font-size: clamp(52px, 13vw, 150px);
+      font-weight: 700;
+      line-height: .88;
+      text-align: center;
+      letter-spacing: -4px
+    }
+
+    .hero h1 .thin {
+      font-weight: 300;
+      opacity: .35
+    }
+
+    .hero-sub {
+      margin-top: 32px;
+      font-size: clamp(13px, 2vw, 17px);
+      font-weight: 300;
+      opacity: .45;
+      text-align: center;
+      letter-spacing: 1px;
+      max-width: 480px
+    }
+
+    .hero-sub .cn {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: .7;
+      letter-spacing: 3px
+    }
+
+    .hero-scroll {
+      position: absolute;
+      bottom: 40px;
+      font-size: 10px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      opacity: .2;
+      animation: pulse 2s ease-in-out infinite
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: .15
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    /* ═══ SECTION ═══ */
+    section {
+      padding: 80px 24px;
+      max-width: 1100px;
+      margin: 0 auto
+    }
+
+    .section-tag {
+      font-size: 10px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      opacity: .25;
+      margin-bottom: 24px
+    }
+
+    .section-title {
+      font-size: clamp(26px, 5vw, 46px);
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 16px
+    }
+
+    .section-body {
+      font-size: 14px;
+      line-height: 1.8;
+      font-weight: 300;
+      opacity: .6;
+      max-width: 580px
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #0e0e0e;
+      margin: 0
+    }
+
+    /* ═══ ABOUT GRID ═══ */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      margin-top: 48px;
+      border: 1px solid #151515
+    }
+
+    .about-card {
+      padding: 28px;
+      border-bottom: 1px solid #151515;
+      border-right: 1px solid #151515
+    }
+
+    .about-card:nth-child(2n) {
+      border-right: none
+    }
+
+    .about-card:nth-last-child(-n+2) {
+      border-bottom: none
+    }
+
+    .about-card .card-num {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      opacity: .2;
+      margin-bottom: 10px
+    }
+
+    .about-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -.3px
+    }
+
+    .about-card p {
+      font-size: 12px;
+      line-height: 1.7;
+      font-weight: 300;
+      opacity: .5
+    }
+
+    /* ═══ 3D SCENE ═══ */
+    .scene-wrap {
+      border: 1px solid #151515;
+      margin: 48px auto;
+      max-width: 700px;
+      position: relative;
+      overflow: hidden;
+      background: #020202
+    }
+
+    .scene-label {
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-size: 8px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 3px;
+      opacity: .2;
+      text-transform: uppercase;
+      pointer-events: none
+    }
+
+    /* ═══ SPECS ═══ */
+    .specs-row {
+      display: flex;
+      gap: 0;
+      margin-top: 48px;
+      border: 1px solid #151515;
+      flex-wrap: wrap
+    }
+
+    .spec-cell {
+      flex: 1;
+      min-width: 120px;
+      padding: 20px;
+      border-right: 1px solid #151515;
+      text-align: center
+    }
+
+    .spec-cell:last-child {
+      border-right: none
+    }
+
+    .spec-cell .val {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -1px
+    }
+
+    .spec-cell .label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: .35;
+      margin-top: 4px;
+      font-family: 'Space Mono', monospace
+    }
+
+    /* ═══ HOW ═══ */
+    .how-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      margin-top: 48px;
+      border: 1px solid #151515
+    }
+
+    .how-step {
+      padding: 28px;
+      border-right: 1px solid #151515;
+      position: relative
+    }
+
+    .how-step:last-child {
+      border-right: none
+    }
+
+    .how-step .step-n {
+      font-size: 56px;
+      font-weight: 700;
+      opacity: .04;
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      line-height: 1
+    }
+
+    .how-step h4 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px
+    }
+
+    .how-step p {
+      font-size: 11px;
+      line-height: 1.7;
+      font-weight: 300;
+      opacity: .45
+    }
+
+    /* ═══ VIDEO ═══ */
+    .video-wrap {
+      border: 2px solid #fff;
+      max-width: 700px;
+      margin: 48px auto;
+      aspect-ratio: 16/9;
+      overflow: hidden
+    }
+
+    .video-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: none
+    }
+
+    .video-tag {
+      font-size: 9px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      opacity: .2;
+      text-align: center;
+      margin-top: 10px
+    }
+
+    /* ═══ CTA ═══ */
+    .cta-section {
+      text-align: center;
+      padding: 100px 24px
+    }
+
+    .cta-section h2 {
+      font-size: clamp(28px, 6vw, 56px);
+      font-weight: 700;
+      letter-spacing: -2px;
+      margin-bottom: 14px
+    }
+
+    .cta-section p {
+      font-size: 13px;
+      opacity: .35;
+      margin-bottom: 36px
+    }
+
+    .cta-btn {
+      display: inline-block;
+      padding: 14px 44px;
+      border: 2px solid #fff;
+      color: #fff;
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+      transition: all .2s
+    }
+
+    .cta-btn:hover {
+      background: #fff;
+      color: #000
+    }
+
+    /* ═══ FOOTER ═══ */
+    footer {
+      border-top: 1px solid #0e0e0e;
+      padding: 36px 24px;
+      text-align: center
+    }
+
+    footer .copy {
+      font-size: 9px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 3px;
+      opacity: .2;
+      text-transform: uppercase
+    }
+
+    footer a {
+      color: #444;
+      text-decoration: none;
+      transition: color .2s
+    }
+
+    footer a:hover {
+      color: #fff
+    }
+
+    @media(max-width:768px) {
+      nav {
+        padding: 16px 24px;
+        gap: 16px
+      }
+
+      .about-grid {
+        grid-template-columns: 1fr
+      }
+
+      .about-card {
+        border-right: none !important
+      }
+
+      .about-card:nth-last-child(-n+2) {
+        border-bottom: 1px solid #151515
+      }
+
+      .about-card:last-child {
+        border-bottom: none
+      }
+
+      .how-steps {
+        grid-template-columns: 1fr
+      }
+
+      .how-step {
+        border-right: none !important;
+        border-bottom: 1px solid #151515
+      }
+
+      .how-step:last-child {
+        border-bottom: none
+      }
+
+      .specs-row {
+        flex-direction: column
+      }
+
+      .spec-cell {
+        border-right: none !important;
+        border-bottom: 1px solid #151515
+      }
+
+      .spec-cell:last-child {
+        border-bottom: none
+      }
+
+      .scene-wrap canvas {
+        height: 260px !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- CRT -->
+  <div id="crt-overlay"></div>
+
+  <!-- JOY DIVISION BG -->
+  <canvas id="joy-bg"></canvas>
+
+  <!-- HAMBURGER + SIDE PANEL -->
+  <div class="hamburger" id="ham"
+    onclick="document.getElementById('ham').classList.toggle('open');document.getElementById('side').classList.toggle('open')">
+    <span></span><span></span><span></span>
+  </div>
+  <div class="side-panel" id="side">
+    <label>波形透明度 <span class="val-display" id="joy-op-v">0.35</span></label>
+    <input type="range" id="joy-op" min="0" max="100" value="35">
+    <label>波形缩放 <span class="val-display" id="joy-zm-v">1.00</span></label>
+    <input type="range" id="joy-zm" min="30" max="200" value="100">
+    <label>波形速度 <span class="val-display" id="joy-sp-v">1.00</span></label>
+    <input type="range" id="joy-sp" min="10" max="300" value="100">
+    <label>CRT 强度 <span class="val-display" id="crt-v">1.0</span></label>
+    <input type="range" id="crt-sl" min="0" max="100" value="100">
+  </div>
+
+  <!-- LANG -->
+  <button class="lang-toggle" id="lang-btn" onclick="toggleLang()">EN</button>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#about" data-en="ABOUT" data-zh="关于">关于</a>
+    <a href="#device" data-en="DEVICE" data-zh="设备">设备</a>
+    <a href="#demo" data-en="DEMO" data-zh="演示">演示</a>
+    <a href="https://github.com/entityentitled101/dance_sync_esp_version" target="_blank">GITHUB</a>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-tag mono" data-en="Wearable Sound Instrument" data-zh="可穿戴声音乐器">可穿戴声音乐器</div>
+      <h1>DANCE<br><span class="thin">SYNC</span></h1>
+      <p class="hero-sub">
+        <span data-en="Turn your movement into music." data-zh="让你的动作变成音乐。">让你的动作变成音乐。</span>
+        <span class="cn" data-en="Wearable Sound Device — Your body is the instrument"
+          data-zh="可穿戴声音装置 — 你的身体就是乐器">可穿戴声音装置 — 你的身体就是乐器</span>
+      </p>
+      <div class="hero-scroll mono">↓ SCROLL</div>
+    </div>
+    <hr class="divider">
+
+    <!-- ABOUT -->
+    <section id="about">
+      <div class="section-tag mono">001</div>
+      <h2 class="section-title" data-en="A device that listens to your hands." data-zh="一个倾听你双手的装置。">一个倾听你双手的装置。</h2>
+      <p class="section-body"
+        data-en="Dance Sync is a wearable motion-to-sound system. Strap a tiny sensor to your hand, and every gesture — every flick, wave, and sweep — becomes a musical phrase. Classical piano when you move slowly. Cyber bass drops when you slam. An entire orchestra controlled by the tilt of your wrist."
+        data-zh="Dance Sync 是一套可穿戴的动作转声音系统。将微型传感器绑在手上，你的每一个手势 —— 每一次挥动、摆动和扫动 —— 都会变成一段乐句。缓慢移动时是古典钢琴，猛力甩动时是赛博低音炮。手腕倾斜角度控制着一整支管弦乐队。">
+        Dance Sync 是一套可穿戴的动作转声音系统。将微型传感器绑在手上，你的每一个手势 —— 每一次挥动、摆动和扫动 —— 都会变成一段乐句。缓慢移动时是古典钢琴，猛力甩动时是赛博低音炮。手腕倾斜角度控制着一整支管弦乐队。
+      </p>
+      <p class="section-body" style="margin-top:10px;opacity:.4;font-size:12px"
+        data-en="Designed for live performers, interactive installations, art exhibitions, dance performances, and anyone who thinks making music should feel as natural as dancing."
+        data-zh="专为现场表演者、互动装置、艺术展览、舞蹈演出设计，也适合任何认为做音乐应该像跳舞一样自然的人。">专为现场表演者、互动装置、艺术展览、舞蹈演出设计，也适合任何认为做音乐应该像跳舞一样自然的人。</p>
+      <div class="about-grid">
+        <div class="about-card">
+          <div class="card-num mono">A</div>
+          <h3 data-en="MAIN HAND" data-zh="主手控制器">主手控制器</h3>
+          <p data-en="Controls the core musical layer. Choose between Classical, Cyber, or Warzone presets. 4 intensity levels — from a gentle piano solo to a full orchestral bombshell."
+            data-zh="控制核心音乐层。在古典(Classical)、赛博(Cyber)或战区(Warzone)预设之间切换。4个强度等级 —— 从温柔的钢琴独奏到全管弦乐团的轰炸。">
+            控制核心音乐层。在古典(Classical)、赛博(Cyber)或战区(Warzone)预设之间切换。4个强度等级 —— 从温柔的钢琴独奏到全管弦乐团的轰炸。</p>
+        </div>
+        <div class="about-card">
+          <div class="card-num mono">B</div>
+          <h3 data-en="FX HAND" data-zh="副手控制器">副手控制器</h3>
+          <p data-en="Drum hits on each punch. Key arpeggios on sweeps. A flute that follows your arm angle. Or BLAST mode — throw your hand and trigger a cinematic explosion. Boom."
+            data-zh="每次出拳触发鼓击。挥扫手臂触发琶音。笛声跟随你手臂的角度。或者 BLAST 模式 —— 甩出你的手，触发一个三层电影级爆破音效。轰！">每次出拳触发鼓击。挥扫手臂触发琶音。笛声跟随你手臂的角度。或者
+            BLAST 模式 —— 甩出你的手，触发一个三层电影级爆破音效。轰！</p>
+        </div>
+        <div class="about-card">
+          <div class="card-num mono">C</div>
+          <h3 data-en="LAYERS" data-zh="层级叠加">层级叠加</h3>
+          <p data-en="Stack sounds in real time. Level 1 is a solo instrument. Level 4 is the full reverberant cathedral. Each layer adds a new voice — building toward a grand crescendo."
+            data-zh="实时叠加声音。第1级是纯独奏乐器。第4级是充满混响的大教堂。每一层都加入新的声部 —— 向宏大的高潮推进。">实时叠加声音。第1级是纯独奏乐器。第4级是充满混响的大教堂。每一层都加入新的声部 ——
+            向宏大的高潮推进。</p>
+        </div>
+        <div class="about-card">
+          <div class="card-num mono">D</div>
+          <h3 data-en="FOR WHO?" data-zh="适合谁？">适合谁？</h3>
+          <p data-en="Live performers. Art installations. Dance troupes. Music therapy. Or just you, alone in your room, pretending you're conducting a symphony. We don't judge."
+            data-zh="现场表演者。艺术装置。舞蹈团。音乐治疗。或者只是你一个人在房间里，假装自己在指挥一支交响乐团。我们不评判。">
+            现场表演者。艺术装置。舞蹈团。音乐治疗。或者只是你一个人在房间里，假装自己在指挥一支交响乐团。我们不评判。</p>
+        </div>
+      </div>
+    </section>
+    <hr class="divider">
+
+    <!-- SPECS -->
+    <section>
+      <div class="section-tag mono">002</div>
+      <div class="specs-row">
+        <div class="spec-cell">
+          <div class="val">2</div>
+          <div class="label mono" data-en="Controllers" data-zh="控制器">控制器</div>
+        </div>
+        <div class="spec-cell">
+          <div class="val">6</div>
+          <div class="label mono" data-en="Axes (XYZ×2)" data-zh="轴向 (XYZ×2)">轴向 (XYZ×2)</div>
+        </div>
+        <div class="spec-cell">
+          <div class="val">3</div>
+          <div class="label mono" data-en="Presets" data-zh="预设">预设</div>
+        </div>
+        <div class="spec-cell">
+          <div class="val">5</div>
+          <div class="label mono" data-en="FX Modes" data-zh="FX 模式">FX 模式</div>
+        </div>
+        <div class="spec-cell">
+          <div class="val">BLE</div>
+          <div class="label mono" data-en="Wireless" data-zh="无线">无线</div>
+        </div>
+      </div>
+    </section>
+    <hr class="divider">
+
+    <!-- 3D DEVICE -->
+    <section id="device">
+      <div class="section-tag mono">003</div>
+      <h2 class="section-title" data-en="24×24mm. One sensor. Infinite expression." data-zh="24×24mm。一个传感器。无限表达。">
+        24×24mm。一个传感器。无限表达。</h2>
+      <p class="section-body"
+        data-en="Built on ESP32 with MPU6050 6-axis motion sensor. Reads acceleration and gyroscope over BLE at 60fps. Weighs almost nothing. Fits on a ring."
+        data-zh="基于 ESP32 平台，搭载 MPU6050 六轴运动传感器。以 60fps 通过 BLE 读取加速度和陀螺仪数据。几乎没有重量。可以戴在戒指上。">基于 ESP32 平台，搭载 MPU6050
+        六轴运动传感器。以 60fps 通过 BLE 读取加速度和陀螺仪数据。几乎没有重量。可以戴在戒指上。</p>
+      <div class="scene-wrap">
+        <canvas id="three-cv"></canvas>
+        <div class="scene-label mono">THREE.JS</div>
+      </div>
+    </section>
+    <hr class="divider">
+
+    <!-- HOW -->
+    <section>
+      <div class="section-tag mono">004</div>
+      <h2 class="section-title" data-en="Motion → Data → Sound" data-zh="动作 → 数据 → 声音">动作 → 数据 → 声音</h2>
+      <div class="how-steps">
+        <div class="how-step">
+          <div class="step-n">1</div>
+          <h4 data-en="SENSE" data-zh="感知">感知</h4>
+          <p data-en="MPU6050 captures 3-axis acceleration and gyroscope data from your hand movement."
+            data-zh="MPU6050 从你的手部运动中捕获三轴加速度和陀螺仪数据。">MPU6050 从你的手部运动中捕获三轴加速度和陀螺仪数据。</p>
+        </div>
+        <div class="how-step">
+          <div class="step-n">2</div>
+          <h4 data-en="TRANSMIT" data-zh="传输">传输</h4>
+          <p data-en="ESP32 streams sensor data over BLE to your browser. No app needed — it's a web page."
+            data-zh="ESP32 通过蓝牙低功耗将传感器数据流式传输到浏览器。不需要 App —— 它就是一个网页。">ESP32 通过蓝牙低功耗将传感器数据流式传输到浏览器。不需要 App —— 它就是一个网页。
+          </p>
+        </div>
+        <div class="how-step">
+          <div class="step-n">3</div>
+          <h4 data-en="SYNTHESIZE" data-zh="合成">合成</h4>
+          <p data-en="Tone.js maps your velocity, angle, and energy to notes, chords, drums, and effects in real time."
+            data-zh="Tone.js 将你的速度、角度和能量实时映射为音符、和弦、鼓声和效果。">Tone.js 将你的速度、角度和能量实时映射为音符、和弦、鼓声和效果。</p>
+        </div>
+      </div>
+    </section>
+    <hr class="divider">
+
+    <!-- VIDEO -->
+    <section id="demo">
+      <div class="section-tag mono">005</div>
+      <h2 class="section-title" data-en="See it in action." data-zh="看看实际效果。">看看实际效果。</h2>
+      <div class="video-wrap">
+        <iframe src="https://www.youtube-nocookie.com/embed/dBBwmdRVIZM?rel=0&modestbranding=1" allowfullscreen
+          allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"></iframe>
+      </div>
+      <div class="video-tag mono">DANCE SYNC — LIVE DEMO</div>
+    </section>
+    <hr class="divider">
+
+    <!-- CTA -->
+    <div class="cta-section">
+      <h2 data-en="JOIN THE WAVE." data-zh="你、你、你、你要跳舞吗？">你、你、你、你要跳舞吗？</h2>
+      <p class="mono" style="font-size:10px">OPEN SOURCE · ESP32 · WEB BLUETOOTH · TONE.JS</p>
+      <a class="cta-btn" href="https://github.com/entityentitled101/dance_sync_esp_version" target="_blank"
+        data-en="VIEW ON GITHUB →" data-zh="在 GITHUB 查看 →">在 GITHUB 查看 →</a>
+    </div>
+    <footer>
+      <p class="copy">© 2026 DANCE SYNC — <a href="https://github.com/entityentitled101"
+          target="_blank">@entityentitled101</a></p>
+    </footer>
+  </div><!-- .content -->
+
+  <!-- ═══ JOY DIVISION WAVE ═══ -->
+  <script>
+    (function () {
+      const cv = document.getElementById('joy-bg');
+      const ctx = cv.getContext('2d');
+      let W, H, dpr, time = 0;
+      let joyOpacity = 0.35, joyZoom = 1, joySpeed = 1;
+
+      function resize() {
+        dpr = window.devicePixelRatio || 1;
+        W = window.innerWidth; H = window.innerHeight;
+        cv.style.width = W + 'px'; cv.style.height = H + 'px';
+        cv.width = W * dpr; cv.height = H * dpr;
+        ctx.scale(dpr, dpr);
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      // controls
+      document.getElementById('joy-op').addEventListener('input', function () { joyOpacity = this.value / 100; document.getElementById('joy-op-v').textContent = joyOpacity.toFixed(2); });
+      document.getElementById('joy-zm').addEventListener('input', function () { joyZoom = this.value / 100; document.getElementById('joy-zm-v').textContent = joyZoom.toFixed(2); });
+      document.getElementById('joy-sp').addEventListener('input', function () { joySpeed = this.value / 100; document.getElementById('joy-sp-v').textContent = joySpeed.toFixed(2); });
+      document.getElementById('crt-sl').addEventListener('input', function () {
+        const v = this.value / 100; document.getElementById('crt-v').textContent = v.toFixed(1);
+        document.getElementById('crt-overlay').style.opacity = v;
+      });
+
+      function draw() {
+        requestAnimationFrame(draw);
+        time += 0.012 * joySpeed;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        if (joyOpacity < 0.01) return;
+
+        const nL = 70, nP = 120;
+        const vW = W * (W < 768 ? 0.95 : 0.7) * joyZoom;
+        const vD = H * 0.7 * joyZoom;
+        const sX = vW / nP, sZ = vD / nL;
+        const stX = -vW / 2, stZ = -vD / 2;
+        const angle = Math.sin(time * 0.1) * 0.12;
+        const cosA = Math.cos(angle), sinA = Math.sin(angle);
+        const pitch = 0.55, elev = H / 2 + H * 0.15;
+        const cx = W / 2;
+
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < nL; i++) {
+          const z = stZ + i * sZ, normZ = i / (nL - 1);
+          ctx.beginPath();
+          const pts = [], zFade = 0.35 + normZ * 0.65;
+          for (let j = 0; j < nP; j++) {
+            const x = stX + j * sX, normX = j / (nP - 1), dx = normX - 0.5, dist = Math.abs(dx);
+            let bell = Math.exp(-Math.pow(dx * 7, 2)); if (dist >= 0.45) bell = 0;
+            const noise = Math.sin(j * 0.2 + time * 1.5 + i * 0.3) + Math.cos(j * 0.45 - time * 0.8 - i * 0.5) * 0.5 + Math.sin(j * 1.1 + time * 0.5 + i * 1.2) * 0.25;
+            const ridge = Math.abs(noise);
+            const rH = Math.abs(Math.sin(i * 1234.5678)), lb = rH > 0.8 ? 1.6 : rH < 0.2 ? 0.5 : 1;
+            let cA = 3 * lb * 8; if (cA > 150) cA = 150;
+            let rb = 0; if (dist > 0.42 && Math.sin(j * 0.5 + i * 2.1) > 0.96 && Math.sin(time * 0.5 + i) > 0.5) rb = Math.random() * 2 * (1 - dist);
+            const alt = (ridge * cA * bell) + rb, y = -alt;
+            const rx2 = x * cosA - z * sinA, rz2 = x * sinA + z * cosA;
+            const px = cx + rx2 * joyZoom, py = elev + (y + rz2 * pitch) * joyZoom;
+            pts.push({ x: px, y: py });
+            if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.strokeStyle = `rgba(255,255,255,${zFade * joyOpacity})`;
+          ctx.stroke();
+          ctx.lineTo(pts[pts.length - 1].x, H + 400);
+          ctx.lineTo(pts[0].x, H + 400);
+          ctx.closePath();
+          ctx.fillStyle = '#000';
+          ctx.fill();
+        }
+      }
+      draw();
+    })();
+  </script>
+
+  <!-- ═══ LANGUAGE TOGGLE ═══ -->
+  <script>
+    let currentLang = 'zh';
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.getElementById('lang-btn').textContent = currentLang === 'zh' ? 'EN' : '中';
+      document.querySelectorAll('[data-en][data-zh]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + currentLang);
+      });
+    }
+  </script>
+
+  <!-- ═══ THREE.JS 3D MODEL ═══ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    (function () {
+      const cv = document.getElementById('three-cv');
+      const w = cv.parentElement.offsetWidth, h = 380;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(30, w / h, 0.1, 100);
+      camera.position.set(3.5, 2.5, 4.5);
+      camera.lookAt(0, 0.3, 0);
+      const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setClearColor(0x020202);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.85);
+      dir.position.set(3, 5, 3); scene.add(dir);
+      const rim = new THREE.DirectionalLight(0x6688cc, 0.25);
+      rim.position.set(-3, 2, -2); scene.add(rim);
+
+      // Materials
+      const greyMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.4, metalness: 0.15 });
+      const darkGreyMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.5, metalness: 0.1 });
+      const bandMat = new THREE.MeshStandardMaterial({ color: 0x7ba35a, roughness: 0.6, metalness: 0.05 }); // olive green band
+      const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+
+      // Rainbow screen texture
+      const texCv = document.createElement('canvas');
+      texCv.width = 128; texCv.height = 128;
+      const tCtx = texCv.getContext('2d');
+      const grad = tCtx.createLinearGradient(0, 0, 128, 128);
+      grad.addColorStop(0, '#ff0044'); grad.addColorStop(0.17, '#ff8800');
+      grad.addColorStop(0.33, '#ffdd00'); grad.addColorStop(0.5, '#00cc44');
+      grad.addColorStop(0.67, '#0066ff'); grad.addColorStop(0.83, '#aa00ff');
+      grad.addColorStop(1, '#ff0044');
+      tCtx.fillStyle = grad; tCtx.fillRect(0, 0, 128, 128);
+      tCtx.fillStyle = 'rgba(255,255,255,0.15)';
+      tCtx.font = 'bold 48px sans-serif'; tCtx.textAlign = 'center';
+      tCtx.fillText('DS', 64, 82);
+      const screenTex = new THREE.CanvasTexture(texCv);
+      const screenMat = new THREE.MeshStandardMaterial({ map: screenTex, roughness: 0.05, metalness: 0.3, emissive: 0x222222, emissiveMap: screenTex });
+
+      const group = new THREE.Group();
+
+      // === 参数已固化 ===
+      let ringSX = 1.25, ringSZ = 0.54, ringTH = 0.20, ringRD = 0.54;
+      let ringMesh = null;
+      const m5Parts = [];
+
+      function buildRing() {
+        if (ringMesh) { group.remove(ringMesh); ringMesh.geometry.dispose(); }
+        m5Parts.forEach(m => { group.remove(m); if (m.geometry) m.geometry.dispose(); });
+        m5Parts.length = 0;
+
+        const bp = [
+          new THREE.Vector2(ringRD - 0.18, -ringTH),
+          new THREE.Vector2(ringRD - 0.03, -ringTH * 1.15),
+          new THREE.Vector2(ringRD, -ringTH * 0.8),
+          new THREE.Vector2(ringRD, ringTH * 0.8),
+          new THREE.Vector2(ringRD - 0.03, ringTH * 1.15),
+          new THREE.Vector2(ringRD - 0.18, ringTH),
+        ];
+        const geo = new THREE.LatheGeometry(bp, 48);
+        ringMesh = new THREE.Mesh(geo, bandMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        ringMesh.scale.set(ringSX, 1, ringSZ);
+        group.add(ringMesh);
+
+        const m5Y = ringRD * ringSZ;
+
+        const shell = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.38, 0.72), greyMat);
+        shell.position.set(0, m5Y + 0.19, 0); m5Parts.push(shell); group.add(shell);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.39, 0.64),
+          [darkGreyMat, darkGreyMat, screenMat, darkGreyMat, darkGreyMat, darkGreyMat]);
+        body.position.set(0, m5Y + 0.195, 0); m5Parts.push(body); group.add(body);
+        const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.04, 0.70), blackMat);
+        bezel.position.set(0, m5Y + 0.39, 0); m5Parts.push(bezel); group.add(bezel);
+        const sg = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.006, 0.52), screenMat);
+        sg.position.set(0, m5Y + 0.415, 0); m5Parts.push(sg); group.add(sg);
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.08, 16), greyMat);
+        base.position.set(0, m5Y - 0.01, 0); m5Parts.push(base); group.add(base);
+        const mount = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.30), bandMat);
+        mount.position.set(0, m5Y - 0.05, 0); m5Parts.push(mount); group.add(mount);
+        const btn = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.10, 0.08), darkGreyMat);
+        btn.position.set(0.37, m5Y + 0.22, 0.10); m5Parts.push(btn); group.add(btn);
+        const usb = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.045, 0.035), blackMat);
+        usb.position.set(0, m5Y + 0.06, 0.37); m5Parts.push(usb); group.add(usb);
+        const axLen = 0.8, axO = new THREE.Vector3(0, m5Y + 0.42, 0);
+        [{ d: new THREE.Vector3(axLen, 0, 0), c: 0xff4444 }, { d: new THREE.Vector3(0, axLen, 0), c: 0x44ff44 }, { d: new THREE.Vector3(0, 0, axLen), c: 0x4488ff }]
+          .forEach(a => {
+            const ln = new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), a.d]),
+              new THREE.LineBasicMaterial({ color: a.c, transparent: true, opacity: 0.3 })
+            );
+            ln.position.copy(axO); m5Parts.push(ln); group.add(ln);
+          });
+      }
+      buildRing();
+
+      // Grid
+      const grid = new THREE.GridHelper(6, 16, 0x111111, 0x080808);
+      grid.position.y = -0.65;
+      scene.add(grid);
+
+      group.position.y = -0.2;
+      scene.add(group);
+
+      // Drag
+      let isDrag = false, prevX = 0, rotY = 0, tgtRotY = 0;
+      cv.addEventListener('pointerdown', e => { isDrag = true; prevX = e.clientX });
+      window.addEventListener('pointermove', e => { if (isDrag) { tgtRotY += (e.clientX - prevX) * 0.01; prevX = e.clientX } });
+      window.addEventListener('pointerup', () => { isDrag = false });
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (!isDrag) tgtRotY += 0.004;
+        rotY += (tgtRotY - rotY) * 0.06;
+        group.rotation.y = rotY;
+        group.position.y = -0.2 + Math.sin(Date.now() * 0.001) * 0.06;
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        const nw = cv.parentElement.offsetWidth;
+        renderer.setSize(nw, 380);
+        camera.aspect = nw / 380;
+        camera.updateProjectionMatrix();
+      });
+    })();
+  </script>
+</body>
+
+</html>
